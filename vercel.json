@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "agentarena.party" }],
+      "destination": "https://www.agentarena.party/:path*",
+      "permanent": true
+    }
+  ]
+}
