@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  AnimatePresence,
   motion,
   useMotionValue,
   useScroll,
@@ -752,9 +753,35 @@ function HoloPreview() {
 
 function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [activeId, setActiveId] = useState<string>("");
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const sectionEls = NAV.map((n) => document.getElementById(n.id)).filter(Boolean) as HTMLElement[];
+    if (!sectionEls.length) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) setActiveId(e.target.id);
+        }
+      },
+      { rootMargin: "-30% 0px -60% 0px", threshold: 0 }
+    );
+    sectionEls.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
   return (
     <>
-      <header className="sticky top-4 z-50 mx-auto flex w-[min(1180px,94vw)] items-center justify-between gap-3 px-1 py-2 sm:px-0 sm:py-3">
+      <header
+        className={`sticky top-4 z-50 mx-auto flex w-[min(1180px,94vw)] items-center justify-between gap-3 px-1 py-2 sm:px-0 sm:py-3 transition-[filter] duration-300 ${scrolled ? "drop-shadow-[0_8px_24px_rgba(56,160,232,0.18)]" : ""}`}
+      >
         <a
           href="#top"
           className="flex shrink-0 items-center py-0.5"
@@ -764,15 +791,22 @@ function Header() {
             <AnimatedLogo scale={0.12} />
           </span>
         </a>
-        <nav className="hidden items-center gap-1 rounded-full border border-white/70 bg-white/55 px-2 py-1 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_24px_-12px_rgba(56,160,232,0.45)] md:flex">
+        <nav className={`hidden items-center gap-1 rounded-full border px-2 py-1 backdrop-blur-xl md:flex transition-[background-color,border-color,box-shadow] duration-300 ${scrolled ? "border-white/85 bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_32px_-12px_rgba(56,160,232,0.55)]" : "border-white/70 bg-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_24px_-12px_rgba(56,160,232,0.45)]"}`}>
           {NAV.map((n) => (
             <a
               key={n.id}
               href={`#${n.id}`}
-              className="rounded-full px-3.5 py-1.5 text-[#0B3D66] transition-colors hover:bg-white"
-              style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, letterSpacing: "0.02em" }}
+              className={`relative rounded-full px-3.5 py-1.5 text-[#0B3D66] transition-colors hover:bg-white ${activeId === n.id ? "bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-4px_rgba(56,160,232,0.35)]" : ""}`}
+              style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: activeId === n.id ? 600 : 500, letterSpacing: "0.02em" }}
             >
               {n.label}
+              {activeId === n.id && (
+                <motion.span
+                  layoutId="nav-pill"
+                  className="absolute inset-0 rounded-full bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-4px_rgba(56,160,232,0.35)] -z-10"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
             </a>
           ))}
         </nav>
@@ -788,49 +822,74 @@ function Header() {
               Play Free
             </ChromeButton>
           </span>
-          <button
+          <motion.button
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="Toggle navigation"
-            className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/70 bg-white/55 text-[#0B3D66] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_24px_-12px_rgba(56,160,232,0.35)] touch-manipulation transition-colors hover:bg-white active:scale-95"
+            aria-expanded={menuOpen}
+            whileTap={{ scale: 0.92 }}
+            className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/70 bg-white/55 text-[#0B3D66] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_24px_-12px_rgba(56,160,232,0.35)] touch-manipulation transition-colors hover:bg-white"
           >
-            {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </button>
+            <motion.span
+              key={menuOpen ? "close" : "open"}
+              initial={{ rotate: -30, opacity: 0, scale: 0.7 }}
+              animate={{ rotate: 0, opacity: 1, scale: 1 }}
+              exit={{ rotate: 30, opacity: 0, scale: 0.7 }}
+              transition={{ duration: 0.18 }}
+              className="inline-flex"
+            >
+              {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </motion.span>
+          </motion.button>
         </div>
       </header>
 
-      {/* Mobile nav — backdrop + drawer */}
-      {menuOpen && (
-        <>
-          {/* Tap-outside backdrop */}
-          <div
-            className="fixed inset-0 z-30 md:hidden"
-            aria-hidden="true"
-            onClick={() => setMenuOpen(false)}
-          />
-          {/* Drawer */}
-          <div className="fixed inset-x-4 top-[4.5rem] z-40 md:hidden rounded-2xl border border-white/70 bg-white/92 backdrop-blur-2xl shadow-[0_18px_60px_-18px_rgba(56,160,232,0.45),inset_0_1px_0_rgba(255,255,255,0.95)] p-3 overscroll-contain">
-            <nav className="flex flex-col">
-              {NAV.map((n) => (
-                <a
-                  key={n.id}
-                  href={`#${n.id}`}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center rounded-xl px-4 min-h-[52px] text-[#0B3D66] touch-manipulation transition-colors hover:bg-cyan-50 active:bg-cyan-100"
-                  style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, letterSpacing: "0.02em" }}
-                >
-                  {n.label}
-                </a>
-              ))}
-              <div className="mt-2 border-t border-cyan-100/80 pt-3">
-                <ChromeButton className="w-full justify-center !text-sm" href={gameUrl()} magnetic={false}>
-                  Play Free
-                  <ChevronRight className="h-4 w-4" />
-                </ChromeButton>
-              </div>
-            </nav>
-          </div>
-        </>
-      )}
+      <AnimatePresence>
+        {menuOpen && (
+          <>
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="fixed inset-0 z-30 md:hidden"
+              aria-hidden="true"
+              onClick={() => setMenuOpen(false)}
+            />
+            <motion.div
+              key="drawer"
+              initial={{ opacity: 0, y: -12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.8 }}
+              className="fixed inset-x-4 top-[4.5rem] z-40 md:hidden rounded-2xl border border-white/70 bg-white/92 backdrop-blur-2xl shadow-[0_18px_60px_-18px_rgba(56,160,232,0.45),inset_0_1px_0_rgba(255,255,255,0.95)] p-3 overscroll-contain origin-top"
+            >
+              <nav className="flex flex-col">
+                {NAV.map((n, i) => (
+                  <motion.a
+                    key={n.id}
+                    href={`#${n.id}`}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.04, duration: 0.22 }}
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center rounded-xl px-4 min-h-[52px] touch-manipulation transition-colors hover:bg-cyan-50 active:bg-cyan-100 ${activeId === n.id ? "text-[#1F7FCC] bg-cyan-50/70 font-semibold" : "text-[#0B3D66]"}`}
+                    style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: activeId === n.id ? 600 : 500, letterSpacing: "0.02em" }}
+                  >
+                    {n.label}
+                  </motion.a>
+                ))}
+                <div className="mt-2 border-t border-cyan-100/80 pt-3">
+                  <ChromeButton className="w-full justify-center !text-sm" href={gameUrl()} magnetic={false}>
+                    Play Free
+                    <ChevronRight className="h-4 w-4" />
+                  </ChromeButton>
+                </div>
+              </nav>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -1496,21 +1555,38 @@ function ArenaShowcase() {
                   <div className="absolute left-1/2 top-16 h-[120%] w-[120%] -translate-x-1/2 rounded-full border-[5px] border-emerald-100/60" />
                 </div>
 
-                {/* The ring — white platform with four pastel posts */}
-                <div className="absolute left-1/2 bottom-[12%] h-[34%] w-[44%] -translate-x-1/2">
+                {/* The ring — floor + posts + ropes share one 3D transform so far corners sit on the stage */}
+                <div
+                  className="absolute left-1/2 bottom-[12%] h-[34%] w-[44%] -translate-x-1/2"
+                  style={{ perspective: "900px" }}
+                >
                   <div
-                    className="absolute inset-0 rounded-md border-[3px] border-white bg-gradient-to-b from-white via-white to-cyan-50 shadow-[0_22px_40px_-12px_rgba(31,127,204,0.4),inset_0_1px_0_rgba(255,255,255,1)]"
-                    style={{ transform: "perspective(900px) rotateX(48deg)", transformOrigin: "center bottom" }}
-                  />
-                  {/* Four corner posts */}
-                  <span className="post-cyan absolute -left-1 -top-3 h-12 w-2.5 rounded-full" />
-                  <span className="post-peach absolute -right-1 -top-3 h-12 w-2.5 rounded-full" />
-                  <span className="post-mint absolute -left-1 bottom-0 h-12 w-2.5 rounded-full" />
-                  <span className="post-rose absolute -right-1 bottom-0 h-12 w-2.5 rounded-full" />
-                  {/* White ropes */}
-                  <span className="absolute left-0 right-0 top-1 h-0.5 bg-white/95 shadow-[0_1px_3px_rgba(31,127,204,0.25)]" />
-                  <span className="absolute left-0 right-0 top-3 h-0.5 bg-white/95 shadow-[0_1px_3px_rgba(31,127,204,0.25)]" />
-                  <span className="absolute left-0 right-0 top-5 h-0.5 bg-white/95 shadow-[0_1px_3px_rgba(31,127,204,0.25)]" />
+                    className="absolute inset-0"
+                    style={{
+                      transform: "rotateX(48deg)",
+                      transformOrigin: "center bottom",
+                      transformStyle: "preserve-3d",
+                    }}
+                  >
+                    <div className="absolute inset-0 z-0 rounded-md border-[3px] border-white bg-gradient-to-b from-white via-white to-cyan-50 shadow-[0_22px_40px_-12px_rgba(31,127,204,0.4),inset_0_1px_0_rgba(255,255,255,1)]" />
+                    {/* Ropes sit on the mat but behind posts (see z-index) */}
+                    <span className="absolute left-0 right-0 top-1 z-[1] h-0.5 bg-white/95 shadow-[0_1px_3px_rgba(31,127,204,0.25)]" />
+                    <span className="absolute left-0 right-0 top-3 z-[1] h-0.5 bg-white/95 shadow-[0_1px_3px_rgba(31,127,204,0.25)]" />
+                    <span className="absolute left-0 right-0 top-5 z-[1] h-0.5 bg-white/95 shadow-[0_1px_3px_rgba(31,127,204,0.25)]" />
+                    {/* Near side: mirror far ropes using top+calc so rope centers align (bottom-* anchored the wrong edge vs top-*) */}
+                    <span className="absolute left-0 right-0 top-[calc(100%-0.375rem)] z-[1] h-0.5 bg-white/95 shadow-[0_1px_3px_rgba(31,127,204,0.25)]" />
+                    <span className="absolute left-0 right-0 top-[calc(100%-0.875rem)] z-[1] h-0.5 bg-white/95 shadow-[0_1px_3px_rgba(31,127,204,0.25)]" />
+                    <span className="absolute left-0 right-0 top-[calc(100%-1.375rem)] z-[1] h-0.5 bg-white/95 shadow-[0_1px_3px_rgba(31,127,204,0.25)]" />
+                    {/* Left / right: connect far ↔ near corner posts along ring edge */}
+                    <span className="absolute left-0 top-1 bottom-1 z-[1] w-0.5 bg-white/95 shadow-[1px_0_3px_rgba(31,127,204,0.2)]" />
+                    <span className="absolute right-0 top-1 bottom-1 z-[1] w-0.5 bg-white/95 shadow-[-1px_0_3px_rgba(31,127,204,0.2)]" />
+                    {/* Near corners (viewer): mint / rose */}
+                    <span className="post-mint absolute -left-1 bottom-0 z-[2] h-12 w-2.5 rounded-full" />
+                    <span className="post-rose absolute -right-1 bottom-0 z-[2] h-12 w-2.5 rounded-full" />
+                    {/* Far corners: cyan / peach */}
+                    <span className="post-cyan absolute left-[5px] top-[-11px] z-[2] h-[52px] w-2.5 rounded-full sm:left-2 sm:top-[-12px]" />
+                    <span className="post-peach absolute right-[5px] top-[-11px] z-[2] h-[52px] w-2.5 rounded-full sm:right-2 sm:top-[-12px]" />
+                  </div>
                 </div>
 
                 {/* Center spotlight glow */}
@@ -2242,7 +2318,7 @@ function Footer() {
 export default function App() {
   return (
     <main
-      className="relative min-h-screen w-full overflow-x-hidden"
+      className="relative min-h-screen w-full"
       style={{ fontFamily: "'Manrope', system-ui, sans-serif" }}
     >
       <ScrollProgress />

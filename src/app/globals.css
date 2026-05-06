@@ -4,20 +4,24 @@
 
 body {
   margin: 0;
-  overflow-x: hidden;
-  overflow-y: visible;
   overscroll-behavior-y: none;
 }
 
 /**
- * Setting height: 100% on the root html plus overflow-x: hidden can make WebKit
- * treat the page as a fixed viewport-tall box and block normal vertical scroll.
- * Min-height + explicit overflow-y keeps horizontal clipping without trapping scroll.
+ * Never put overflow-x: hidden on body — WebKit/iOS often stops vertical page scroll
+ * when body clips horizontally while overflow-y stays visible.
+ * Clip only on the root; overflow-x: clip avoids scroll-container quirks vs hidden.
  */
 html {
   min-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+@supports (overflow-x: clip) {
+  html {
+    overflow-x: clip;
+  }
 }
 
 /* Eliminate 300ms tap delay globally */
